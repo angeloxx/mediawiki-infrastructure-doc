@@ -3,12 +3,14 @@ import logging, logging.handlers
 from optparse import OptionParser
 from f5.bigip import ManagementRoot
 from icontrol.exceptions import iControlUnexpectedHTTPError
+import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 __author__      = "Angelo Conforti"
 __copyright__   = "Copyright 2018, angeloxx@angeloxx.it"
 
 ##################################################
-# fnt
+# fn
 ##################################################
 def vsToAFM(mgmt,vs):
     if not 'fwEnforcedPolicy' in vs.raw:
@@ -19,12 +21,20 @@ def vsToAFM(mgmt,vs):
     #afm = mgmt.tm.security.firewall.policy_s.get_collection()[0]
     #afm = [element for element in mgmt.tm.security.firewall.policy_s.get_collection() if element.raw['name']==vs.raw['fwEnforcedPolicy']]
     afms = list(filter(lambda x: x.raw["fullPath"] == vs.raw['fwEnforcedPolicy'], mgmt.tm.security.firewall.policy_s.get_collection()))
+    
     if len(afms) == 0:
         return {}
     else:
         afm = afms.pop()
-    #print (afm.rules_s.rule.)
-    #print (afm.rules_s.rule.load(name=""))
+
+    #print (afm.policy.raw)
+    #print (afm.rules_s.raw)
+    #print (afm.rules_s.rule)
+    #print (afm.rules_s.rules.load())
+    print(mgmt.tm.security.Address_Lists.load(name=vs.raw['fwEnforcedPolicy']).raw)
+
+def afmToWiki(rules):
+    pass
 
 ##################################################
 # Configure logger
@@ -50,6 +60,7 @@ parser.add_option("--format", dest="format", type="choice", choices=['wiki', 'ya
 parser.add_option("--mailserver", dest="mailserver", default="mail")
 parser.add_option("--rcpt", dest="rcpt", default="")
 parser.add_option("--from", dest="from", default="")
+parser.add_option("--ignore-ssl-error", dest="ignore_ssl_error", default=False, action="store_true")
 (options, args) = parser.parse_args()
 
 if options.specfile == "":
@@ -71,6 +82,9 @@ specfile = open(options.specfile).read()
 
 # Connect to the BigIP
 try:
+    #if options.ignore_ssl_error:
+    #    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+    
     mgmt = ManagementRoot(options.remote, options.username, options.password)
     pass
 except Exception as e:
