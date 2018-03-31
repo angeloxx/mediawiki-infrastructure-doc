@@ -1,0 +1,4 @@
+# List the exported vs in <vsname>,exporttype[AFM|VS],description format
+name=nonexist,exporttype=AFM,description=This VS does not exists
+name=test,exporttype=AFM,description=This VS does not exists
+exporttype=AFM,description=This VS does not exists
