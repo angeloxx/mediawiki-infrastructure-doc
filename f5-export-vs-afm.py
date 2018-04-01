@@ -164,7 +164,7 @@ for line in specfile.split("\n"):
     if line.startswith("#"):
         continue
 
-    values = dict(item.split("=") for item in line.split(","))
+    values = dict(item.split(":") for item in line.split(";"))
     if not "name" in values:
         log.error("Line {0}, name property not found.. skipped".format(lineno))
         continue
@@ -211,11 +211,10 @@ if options.outmode == "file":
             the_file.write(line["body"] + "\n")
             the_file.write(line["footer"] + "\n")
 if options.outmode == "multifile":
-    for line in output:
+    for single in output:
         # Sanitize subpage name
-        filetitle = ''.join(c for c in line["title"] if c in valid_chars)
+        filetitle = ''.join(c for c in single["title"] if c in valid_chars)
         filetitle = filetitle.replace(' ','_') # I don't like spaces in filenames.        
         with open("{0}-{1}".format(options.outfile, filetitle), 'w') as the_file:
-            for line in output:
-                the_file.write(line["body"] + "\n")
-                the_file.write(line["footer"] + "\n")
+            the_file.write(single["body"] + "\n")
+            the_file.write("<br>" + single["footer"] + "\n")
