@@ -1,4 +1,4 @@
-import sys, os, mwclient
+import sys, os, time
 import logging, logging.handlers
 from optparse import OptionParser
 from icontrol.session import iControlRESTSession
@@ -21,68 +21,85 @@ def vsToAFM(mgmt,vs):
     
     return(afm.json()['items'])
 
+def decodeRule(rule):
+    ret = []
+    if "addresses" in rule:
+        for item in rule['addresses']:
+            ret.append("Address {0}".format(item["name"]))
+    if "addressLists" in rule:
+        for item in rule['addressLists']:
+            ret.append("AddressList {0}".format(item))
+    if "geo" in rule:
+        for item in rule['geo']:
+            ret.append("Geographic Area {0}".format(item["name"]))
+    if "portLists" in rule:
+        for item in rule['portLists']:
+            ret.append("PortList {0}".format(item))
+    if "ports" in rule:
+        for item in rule['ports']:
+            ret.append("Port {0}".format(item['name']))
+    if "vlans" in rule:
+        for item in rule['vlans']:
+            ret.append("VLAN {0}".format(item))
+
+    if rule == {}:
+        ret.append("any")
+    if rule == {'identity': {}}:
+        ret.append("any")
+    #if "ruleList" in rule:
+    #    print(mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json())
+        #print(decodeRule(mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json()))
+        
+    return ret
+
 def afmToWiki(rules):
     lines = []
     lines.append('{| class="wikitable"')
     lines.append('|-')
-    lines.append('! style="width: 200px" | Name')
+    lines.append('! style="width: 250px" | Name')
     lines.append('! style="width: 50px" | Protocol')
-    lines.append('! style="width: 350px" | Source')
-    lines.append('! style="width: 350px" | Destination')
+    lines.append('! style="width: 250px" | Source')
+    lines.append('! style="width: 250px" | Destination')
     lines.append('! style="width: 50px" | Action')
     for rule in rules:
         # Get rule details
         rule["sources"] = []
         rule["destinations"] = []
-
         #try:
         #    rule['details'] = mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json()
         #except iControlUnexpectedHTTPError as ex:
         #    continue
+        if not "ruleList" in rule:
+            print(rule)
+            rule['sources'] = decodeRule(rule['source'])
+            rule['destinations'] = decodeRule(rule['destination'])
 
-        
-        if "addresses" in rule['source']:
-            for item in rule['source']['addresses']:
-                rule["sources"].append("Address {0}".format(item["name"]))
-        if "addressLists" in rule['source']:
-            for item in rule['source']['addressLists']:
-                rule["sources"].append("AddressList {0}".format(item))
-        if "geo" in rule['source']:
-            for item in rule['source']['geo']:
-                rule["sources"].append("Geographic Area {0}".format(item["name"]))
-        if "portLists" in rule['source']:
-            for item in rule['source']['portLists']:
-                rule["sources"].append("PortList {0}".format(item))
-        if "ports" in rule['source']:
-            for item in rule['source']['ports']:
-                rule["sources"].append("Port {0}".format(item['name']))
+            rule["sourcesList"] = "<br>".join(rule["sources"])
+            rule["destinationsList"] = "<br>".join(rule["destinations"])
 
-        if "addresses" in rule['destination']:
-            for item in rule['destination']['addresses']:
-                rule["destinations"].append("Address {0}".format(item["name"]))
-        if "addressLists" in rule['destination']:
-            for item in rule['destination']['addressLists']:
-                rule["destinations"].append("AddressList {0}".format(item))
-        if "geo" in rule['destination']:
-            for item in rule['destination']['geo']:
-                rule["destinations"].append("Geographic Area {0}".format(item["name"]))
-        if "portLists" in rule['destination']:
-            for item in rule['destination']['portLists']:
-                rule["destinations"].append("PortList {0}".format(item))
-        if "ports" in rule['destination']:
-            for item in rule['destination']['ports']:
-                rule["destinations"].append("Port {0}".format(item['name']))
+            lines.append('|- style="font-size: 90%;"')
+            lines.append('| {name}'.format(**rule))
+            lines.append('| {ipProtocol}'.format(**rule))
+            lines.append('| {sourcesList}'.format(**rule))
+            lines.append('| {destinationsList}'.format(**rule))
+            lines.append('| {action}'.format(**rule))
+        else:
+            subrules = mgmt.get('https://{0}/mgmt/tm/security/firewall/rule-list/{1}/rules'.format(options.remote,rule["ruleList"].replace("/","~")))
+            for subrule in subrules.json()["items"]:
+            
+                subrule['name'] = "RuleList {0} <br> {1}".format(rule['name'].replace("_","/"),subrule['name'])
+                subrule['sources'] = decodeRule(subrule["source"])
+                subrule['destinations'] = decodeRule(subrule["destination"])
+                
+                subrule["sourcesList"] = "<br>".join(subrule["sources"])
+                subrule["destinationsList"] = "<br>".join(subrule["destinations"])
 
-        print(rule)
-        rule["sourcesList"] = "<br>".join(rule["sources"])
-        rule["destinationsList"] = "<br>".join(rule["destinations"])
-
-        lines.append('|-')
-        lines.append('| {name}'.format(**rule))
-        lines.append('| {ipProtocol}'.format(**rule))
-        lines.append('| {sourcesList}'.format(**rule))
-        lines.append('| {destinationsList}'.format(**rule))
-        lines.append('| {action}'.format(**rule))
+                lines.append('|- style="font-size: 90%;"')
+                lines.append('| {name}'.format(**subrule))
+                lines.append('| {ipProtocol}'.format(**subrule))
+                lines.append('| {sourcesList}'.format(**subrule))
+                lines.append('| {destinationsList}'.format(**subrule))
+                lines.append('| {action}'.format(**subrule))
 
     lines.append('|}')
     return "\n".join(lines)
@@ -103,7 +120,7 @@ log.addHandler(handlerSyslog)
 parser = OptionParser()
 parser.add_option("-u", "--username", dest="username", default="api")
 parser.add_option("-p", "--password", dest="password", default="apiapi")
-parser.add_option("-r", "--remote", dest="remote", default="172.18.122.21")
+parser.add_option("-r", "--remote", dest="remote", default="127.0.0.1")
 parser.add_option("--specfile", dest="specfile", default="")
 parser.add_option("--outfile", dest="outfile", default="/tmp/outfile")
 parser.add_option("--outmode", dest="outmode", default="file")
@@ -184,6 +201,7 @@ for line in specfile.split("\n"):
             print (afmToWiki(data))
             output.append('== {} =='.format(values["description"]))
             output.append(afmToWiki(data))
+            output.append('{{{{note}}}}Last update {0}'.format(time.ctime()))
 
 
 
