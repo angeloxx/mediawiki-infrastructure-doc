@@ -48,6 +48,8 @@ or
 # Mediawiki
 The script creates the main page that contains all exported elements OR a master page that uses Embed feature of Mediawiki to import all created subpages. You can import these subpages in your Wiki documents with {{pagename/subpage}} annotation.
 
-![F5 exported configuration](f5.png)
+## F5 exported configuration
+![F5](f5.png)
 
-![LDAP exported group membership](ldap.png)
+## LDAP group membership
+![ldap](ldap.png)
