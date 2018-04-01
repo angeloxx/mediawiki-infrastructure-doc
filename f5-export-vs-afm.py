@@ -1,10 +1,8 @@
 import sys, os, mwclient
 import logging, logging.handlers
 from optparse import OptionParser
-from f5.bigip import ManagementRoot
+from icontrol.session import iControlRESTSession
 from icontrol.exceptions import iControlUnexpectedHTTPError
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 __author__      = "Angelo Conforti"
 __copyright__   = "Copyright 2018, angeloxx@angeloxx.it"
@@ -13,28 +11,81 @@ __copyright__   = "Copyright 2018, angeloxx@angeloxx.it"
 # fn
 ##################################################
 def vsToAFM(mgmt,vs):
-    if not 'fwEnforcedPolicy' in vs.raw:
+    if not 'fwEnforcedPolicy' in vs:
         return {}
-
-    #mgmt.tm.asm.policies_s.policy.load(id=p_object.id)
-    #afm = mgmt.tm.security.firewall.policy_s.get_collection(name=vs.raw['fwEnforcedPolicy'])
-    #afm = mgmt.tm.security.firewall.policy_s.get_collection()[0]
-    #afm = [element for element in mgmt.tm.security.firewall.policy_s.get_collection() if element.raw['name']==vs.raw['fwEnforcedPolicy']]
-    afms = list(filter(lambda x: x.raw["fullPath"] == vs.raw['fwEnforcedPolicy'], mgmt.tm.security.firewall.policy_s.get_collection()))
+    try:
+        afm = mgmt.get('https://{0}/mgmt/tm/security/firewall/policy/{1}/rules'.format(options.remote,vs["fwEnforcedPolicy"].replace("/","~")))
+    except iControlUnexpectedHTTPError as ex:
+        print(ex)
+        return {}
     
-    if len(afms) == 0:
-        return {}
-    else:
-        afm = afms.pop()
-
-    #print (afm.policy.raw)
-    #print (afm.rules_s.raw)
-    #print (afm.rules_s.rule)
-    #print (afm.rules_s.rules.load())
-    print(mgmt.tm.security.Address_Lists.load(name=vs.raw['fwEnforcedPolicy']).raw)
+    return(afm.json()['items'])
 
 def afmToWiki(rules):
-    pass
+    lines = []
+    lines.append('{| class="wikitable"')
+    lines.append('|-')
+    lines.append('! style="width: 200px" | Name')
+    lines.append('! style="width: 50px" | Protocol')
+    lines.append('! style="width: 350px" | Source')
+    lines.append('! style="width: 350px" | Destination')
+    lines.append('! style="width: 50px" | Action')
+    for rule in rules:
+        # Get rule details
+        rule["sources"] = []
+        rule["destinations"] = []
+
+        #try:
+        #    rule['details'] = mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json()
+        #except iControlUnexpectedHTTPError as ex:
+        #    continue
+
+        
+        if "addresses" in rule['source']:
+            for item in rule['source']['addresses']:
+                rule["sources"].append("Address {0}".format(item["name"]))
+        if "addressLists" in rule['source']:
+            for item in rule['source']['addressLists']:
+                rule["sources"].append("AddressList {0}".format(item))
+        if "geo" in rule['source']:
+            for item in rule['source']['geo']:
+                rule["sources"].append("Geographic Area {0}".format(item["name"]))
+        if "portLists" in rule['source']:
+            for item in rule['source']['portLists']:
+                rule["sources"].append("PortList {0}".format(item))
+        if "ports" in rule['source']:
+            for item in rule['source']['ports']:
+                rule["sources"].append("Port {0}".format(item['name']))
+
+        if "addresses" in rule['destination']:
+            for item in rule['destination']['addresses']:
+                rule["destinations"].append("Address {0}".format(item["name"]))
+        if "addressLists" in rule['destination']:
+            for item in rule['destination']['addressLists']:
+                rule["destinations"].append("AddressList {0}".format(item))
+        if "geo" in rule['destination']:
+            for item in rule['destination']['geo']:
+                rule["destinations"].append("Geographic Area {0}".format(item["name"]))
+        if "portLists" in rule['destination']:
+            for item in rule['destination']['portLists']:
+                rule["destinations"].append("PortList {0}".format(item))
+        if "ports" in rule['destination']:
+            for item in rule['destination']['ports']:
+                rule["destinations"].append("Port {0}".format(item['name']))
+
+        print(rule)
+        rule["sourcesList"] = "<br>".join(rule["sources"])
+        rule["destinationsList"] = "<br>".join(rule["destinations"])
+
+        lines.append('|-')
+        lines.append('| {name}'.format(**rule))
+        lines.append('| {ipProtocol}'.format(**rule))
+        lines.append('| {sourcesList}'.format(**rule))
+        lines.append('| {destinationsList}'.format(**rule))
+        lines.append('| {action}'.format(**rule))
+
+    lines.append('|}')
+    return "\n".join(lines)
 
 ##################################################
 # Configure logger
@@ -84,8 +135,9 @@ specfile = open(options.specfile).read()
 try:
     #if options.ignore_ssl_error:
     #    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    
-    mgmt = ManagementRoot(options.remote, options.username, options.password)
+    #mgmt = ManagementRoot(options.remote, options.username, options.password)
+    #mgmt = f5.BIGIP(options.remote, options.username, options.password)    
+    mgmt = iControlRESTSession(options.username, options.password)
     pass
 except Exception as e:
     log.error("Unable to login to {0} with '{1}' username (user should be operator or administrator)".format(options.remote, options.username))
@@ -93,6 +145,7 @@ except Exception as e:
     sys.exit(1)
 
 lineno = 0
+output = []
 for line in specfile.split("\n"):
     lineno=lineno+1
     if line.startswith("#"):
@@ -110,7 +163,7 @@ for line in specfile.split("\n"):
         continue
 
     try:
-        vs = mgmt.tm.ltm.virtuals.virtual.load(name=values["name"])
+        vs = mgmt.get('https://{0}/mgmt/tm/ltm/virtual/{1}'.format(options.remote,values["name"].replace("/","~")))
     except iControlUnexpectedHTTPError as ex:
         if '404' in ex.__str__():
             log.error("Line {0}, unable to find vs '{1}'.. skipped".format(lineno, values["name"]))
@@ -126,4 +179,14 @@ for line in specfile.split("\n"):
     log.info("Line {0}, vs found".format(lineno))
 
     if values["exporttype"] == 'AFM':
-        data = vsToAFM(mgmt,vs)
+        data = vsToAFM(mgmt,vs.json())
+        if data != {}:
+            print (afmToWiki(data))
+            output.append('== {} =='.format(values["description"]))
+            output.append(afmToWiki(data))
+
+
+
+
+with open(options.outfile, 'w') as the_file:
+    the_file.write("\n".join(output))
