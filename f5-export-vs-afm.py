@@ -46,10 +46,6 @@ def decodeRule(rule):
         ret.append("any")
     if rule == {'identity': {}}:
         ret.append("any")
-    #if "ruleList" in rule:
-    #    print(mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json())
-        #print(decodeRule(mgmt.get(rule["selfLink"].replace("localhost",options.remote)).json()))
-        
     return ret
 
 def afmToWiki(rules):
@@ -70,7 +66,6 @@ def afmToWiki(rules):
         #except iControlUnexpectedHTTPError as ex:
         #    continue
         if not "ruleList" in rule:
-            print(rule)
             rule['sources'] = decodeRule(rule['source'])
             rule['destinations'] = decodeRule(rule['destination'])
 
@@ -123,8 +118,8 @@ parser.add_option("-p", "--password", dest="password", default="apiapi")
 parser.add_option("-r", "--remote", dest="remote", default="127.0.0.1")
 parser.add_option("--specfile", dest="specfile", default="")
 parser.add_option("--outfile", dest="outfile", default="/tmp/outfile")
-parser.add_option("--outmode", dest="outmode", default="file")
-parser.add_option("--format", dest="format", type="choice", choices=['wiki', 'yaml', 'mail',], default="wiki")
+parser.add_option("--outmode", dest="outmode", type="choice", choices=['file', 'multifile', 'mail',], default="file")
+parser.add_option("--format", dest="format", type="choice", choices=['wiki',], default="wiki")
 parser.add_option("--mailserver", dest="mailserver", default="mail")
 parser.add_option("--rcpt", dest="rcpt", default="")
 parser.add_option("--from", dest="from", default="")
@@ -175,9 +170,11 @@ for line in specfile.split("\n"):
     if not "exporttype" in values:
         log.error("Line {0}, exporttype property not found.. skipped".format(lineno))
         continue
-    if not "description" in values:
+    if not "title" in values:
         log.error("Line {0}, description property not found.. skipped".format(lineno))
         continue
+    if not "description" in values:
+        values["description"] = ""
 
     try:
         vs = mgmt.get('https://{0}/mgmt/tm/ltm/virtual/{1}'.format(options.remote,values["name"].replace("/","~")))
@@ -198,13 +195,23 @@ for line in specfile.split("\n"):
     if values["exporttype"] == 'AFM':
         data = vsToAFM(mgmt,vs.json())
         if data != {}:
-            print (afmToWiki(data))
-            output.append('== {} =='.format(values["description"]))
-            output.append(afmToWiki(data))
-            output.append('{{{{note}}}}Last update {0}'.format(time.ctime()))
+            output.append({
+                "title": values["title"],
+                "body": "{0}\n{1}".format(values["description"], afmToWiki(data)),
+                "footer": '{{{{note}}}}Last update {0}'.format(time.ctime())
+            })
 
 
 
-
-with open(options.outfile, 'w') as the_file:
-    the_file.write("\n".join(output))
+if options.outmode == "file":
+    with open(options.outfile, 'w') as the_file:
+        for line in output:
+            the_file.write('== {} =='.format(line["title"])  + "\n")
+            the_file.write(line["body"] + "\n")
+            the_file.write(line["footer"] + "\n")
+if options.outmode == "multifile":
+    for line in output:
+        with open("{0}-{1}".format(options.outfile, line["title"]), 'w') as the_file:
+            for line in output:
+                the_file.write(line["body"] + "\n")
+                the_file.write(line["footer"] + "\n")

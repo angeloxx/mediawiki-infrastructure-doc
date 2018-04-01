@@ -1,5 +1,5 @@
 # List the exported vs in <vsname>,exporttype[AFM|VS],description format
-name=/Common/nonexist,exporttype=AFM,description=This VS does not exists
-name=/Common/test,exporttype=AFM,description=TEST virtual server
-name=/Common/test,exporttype=AFM,description=TEST virtual server 2
-exporttype=AFM,description=This VS does not exists
+name=/Common/nonexist,exporttype=AFM,title=notexists,description=This VS does not exists
+name=/Common/test,exporttype=AFM,title=test1,description=TEST virtual server
+name=/Common/test,exporttype=AFM,title=test2,description=TEST virtual server 2
+exporttype=AFM,title=AFM,description=This VS does not exists
