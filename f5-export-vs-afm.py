@@ -1,4 +1,4 @@
-import sys, os, time
+import sys, os, time, string
 import logging, logging.handlers
 from optparse import OptionParser
 from icontrol.session import iControlRESTSession
@@ -6,6 +6,11 @@ from icontrol.exceptions import iControlUnexpectedHTTPError
 
 __author__      = "Angelo Conforti"
 __copyright__   = "Copyright 2018, angeloxx@angeloxx.it"
+
+##################################################
+# const
+##################################################
+valid_chars = "-_ %s%s" % (string.ascii_letters, string.digits)
 
 ##################################################
 # fn
@@ -145,10 +150,6 @@ specfile = open(options.specfile).read()
 
 # Connect to the BigIP
 try:
-    #if options.ignore_ssl_error:
-    #    requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
-    #mgmt = ManagementRoot(options.remote, options.username, options.password)
-    #mgmt = f5.BIGIP(options.remote, options.username, options.password)    
     mgmt = iControlRESTSession(options.username, options.password)
     pass
 except Exception as e:
@@ -211,7 +212,10 @@ if options.outmode == "file":
             the_file.write(line["footer"] + "\n")
 if options.outmode == "multifile":
     for line in output:
-        with open("{0}-{1}".format(options.outfile, line["title"]), 'w') as the_file:
+        # Sanitize subpage name
+        filetitle = ''.join(c for c in line["title"] if c in valid_chars)
+        filetitle = filetitle.replace(' ','_') # I don't like spaces in filenames.        
+        with open("{0}-{1}".format(options.outfile, filetitle), 'w') as the_file:
             for line in output:
                 the_file.write(line["body"] + "\n")
                 the_file.write(line["footer"] + "\n")

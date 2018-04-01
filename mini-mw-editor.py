@@ -94,11 +94,13 @@ try:
             log.info("Create or edit the {0} master-page".format(options.page))
             page.save("\n".join(mainpage), summary=options.summary, bot=True, minor=options.is_minor)
         else:
+            # Create the single page
             log.info("Create or edit the {0} page".format(options.page))
             page = site.pages[options.page]
             text = open(options.content_file).read()
             page.save(text, summary=options.summary, bot=True, minor=options.is_minor)
     else:
+        # Edit the single section
         log.info("Create or edit the {0} page, section {1}".format(options.page,options.section))
         page = site.pages[options.page]
         text = page.text(section=options.section)
