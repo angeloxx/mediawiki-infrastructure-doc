@@ -7,9 +7,10 @@ The objective of this project is to document the firewall policies and LDAP grou
 Create a list of F5's Virtual Server that you want document on your Mediawiki using this format:
 
     # List the exported vs in <vsname>,exporttype[AFM|VS],description format
-    name=nonexist,exporttype=AFM,description=This VS does not exists
-    name=test,exporttype=AFM,description=This VS does not exists
-    exporttype=AFM,description=This VS does not exists
+    name=/Common/nonexist,exporttype=AFM,title=notexists,description=This VS does not exists
+    name=/Common/test,exporttype=AFM,title=test1,description=TEST virtual server
+    name=/Common/test,exporttype=AFM,title=test2 prova 123,description=TEST virtual server 2
+    exporttype=AFM,title=AFM,description=This VS does not exists
 
 launch the exporter with:
 
