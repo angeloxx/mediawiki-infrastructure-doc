@@ -31,6 +31,15 @@ or
 
 ## LDAP
 
+Create a list of LDAP groups that you want document on your Mediawiki using this format:
+    
+    # List the exported groups in dn:<cn-group>;title:pagetitle;description:description format
+    dn:cn=GITGroup,ou=servicegroups,dc=range-id,dc=web;title:asdasd1
+    dn:cn=ciccio,ou=servicegroups,dc=range-id,dc=web;title:asdasd2
+    dn:cn=cicciolo,ou=servicegroups,dc=range-id,dc=web;title:asdasd3
+
+launch the exporter with:
+
     python3 ldap-export.py --specfile ldap-export.list --binddn cn=admin,dc=domain,dc=web --password password --remote ldapserver
 
 or
