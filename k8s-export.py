@@ -13,7 +13,6 @@ valid_chars = "-_ %s%s" % (string.ascii_letters, string.digits)
 ##################################################
 # fn
 ##################################################
-    
 def deploymentToWiki(items):
     lines = []
 
@@ -33,17 +32,96 @@ def deploymentToWiki(items):
         lines.append('| {}'.format(int(item.status.updated_replicas or 0)))
         
         annot = []
-        for annotation in item.metadata.annotations:
-            if annotation.startswith("kubectl.kubernetes.io/"):
-                continue
-            annot.append("{0}: {1}<br>".format(annotation,item.metadata.annotations[annotation]))
+        if item.metadata.annotations != None: 
+            for annotation in item.metadata.annotations:
+                if annotation.startswith("kubectl.kubernetes.io/"):
+                    continue
+                annot.append("{0}: {1}<br>".format(annotation,item.metadata.annotations[annotation]))
 
         lines.append('| {}'.format("\n".join(annot)))    
 
     lines.append('|}')
-    print (lines)
     return "\n".join(lines)
 
+
+def statefulsetToWiki(items):
+    lines = []
+
+    lines.append('{| class="wikitable"')
+    lines.append('|- style="vertical-align:top;')
+    lines.append('! style="width: 250px" | Name')
+    lines.append('! style="width: 50px" | Configured')
+    lines.append('! style="width: 50px" | Running')
+    lines.append('! style="width: 50px" | Ready')
+    lines.append('! style="width: 50px" | Updated')
+    lines.append('! style="width: 400px" | Annotations')
+
+    for item in items:
+        lines.append('|- style="font-size: 90%;"')
+        lines.append('| {}'.format(item.metadata.name))
+        lines.append('| {}'.format(int(item.spec.replicas or 0)))
+        lines.append('| {}'.format(int(item.status.current_replicas or 0)))
+        lines.append('| {}'.format(int(item.status.available_replicas or 0)))
+        lines.append('| {}'.format(int(item.status.updated_replicas or 0)))
+        
+        annot = []
+        if item.metadata.annotations != None:         
+            for annotation in item.metadata.annotations:
+                if annotation.startswith("kubectl.kubernetes.io/"):
+                    continue
+                annot.append("{0}: {1}<br>".format(annotation,item.metadata.annotations[annotation]))
+
+        lines.append('| {}'.format("\n".join(annot)))    
+
+    lines.append('|}')
+    return "\n".join(lines)
+
+def podToWiki(items):
+    lines = []
+
+    lines.append('{| class="wikitable"')
+    lines.append('|- style="vertical-align:top;')
+    lines.append('! style="width: 200px" | Name')
+    lines.append('! style="width: 100px" | Status')
+    lines.append('! style="width: 100px" | IP Address')
+    lines.append('! style="width: 100px" | Node')
+    lines.append('! style="width: 100px" | State Reason')
+    lines.append('! style="width: 100px" | Start Time')
+    lines.append('! style="width: 400px" | Annotations')
+
+    for item in items:
+        lines.append('|- style="font-size: 90%;"')
+        lines.append('| {}'.format(item.metadata.name))
+
+        conditions = []
+        for condition in item.status.conditions:
+            if condition.status == "False":
+                continue
+            if condition.type == "PodScheduled":
+                conditions.append("PodScheduled")
+            if condition.type == "Initialized":
+                conditions.append("Initialized")
+            if condition.type == "Ready":
+                conditions.append("Ready")
+
+        lines.append('| {}'.format(",".join(conditions)))
+        lines.append('| {}'.format(item.status.pod_ip))
+        lines.append('| {}'.format(item.status.host_ip))
+        lines.append('| {}'.format(item.status.reason))
+        lines.append('| {}'.format(item.status.start_time))
+        
+        annot = []
+        if item.metadata.annotations != None: 
+            for annotation in item.metadata.annotations:
+                if annotation.startswith("kubectl.kubernetes.io/"):
+                    continue
+                annot.append("{0}: {1}<br>".format(annotation,item.metadata.annotations[annotation]))
+
+        lines.append('| {}'.format("\n".join(annot)))    
+
+    lines.append('|}')
+    print(lines)
+    return "\n".join(lines)
 
 ##################################################
 # Configure logger
@@ -93,8 +171,8 @@ specfile = open(options.specfile).read()
 # Connect to the K8S Server
 try:
     config.load_kube_config(config_file=options.credential)
-    #mgmt = client.CoreV1Api()
-    mgmt = client.AppsV1Api()
+    mgmtCore = client.CoreV1Api()
+    mgmtApp = client.AppsV1Api()
 except Exception as e:
     log.error("Unable to login")
     log.error("Error is: {0}".format(e))
@@ -127,11 +205,20 @@ for line in specfile.split("\n"):
 
     #results = mgmt.list_pod_for_all_namespaces(watch=False)
     if values["type"] == "pods":
-        #results = mgmt.list_namespaced_pod(values["namespace"])
-        pass
+        results = mgmtCore.list_namespaced_pod(values["namespace"])
+        if len(results.items) == 0:
+            log.error("Namespace {0}, does not exist.. skipped".format(values["namespace"]))
+            continue
+
+        log.info("Namespace {0} contains {1} pods".format(values["namespace"],len(results.items)))
+        output.append({
+            "title": values["title"],
+            "body": "{0}\n{1}".format(values["description"], podToWiki(results.items)),
+            "footer": '{{{{note}}}}Last update {0}'.format(time.ctime())
+        })
 
     if values["type"] == "deployments" or values["type"] == "allsets":
-        results = mgmt.list_namespaced_deployment(values["namespace"])
+        results = mgmtApp.list_namespaced_deployment(values["namespace"])
         if len(results.items) == 0:
             log.error("Namespace {0}, does not exist.. skipped".format(values["namespace"]))
             continue
@@ -144,15 +231,15 @@ for line in specfile.split("\n"):
         })
 
     if values["type"] == "statefulset" or values["type"] == "allsets":
-        results = mgmt.list_namespaced_deployment(values["namespace"])
+        results = mgmtApp.list_namespaced_stateful_set(values["namespace"])
         if len(results.items) == 0:
             log.error("Namespace {0}, does not exist.. skipped".format(values["namespace"]))
             continue
 
-        log.info("Namespace {0} contains {1} deployments".format(values["namespace"],len(results.items)))
+        log.info("Namespace {0} contains {1} statefulsets".format(values["namespace"],len(results.items)))
         output.append({
             "title": values["title"],
-            "body": "{0}\n{1}".format(values["description"], deploymentToWiki(results.items)),
+            "body": "{0}\n{1}".format(values["description"], statefulsetToWiki(results.items)),
             "footer": '{{{{note}}}}Last update {0}'.format(time.ctime())
         })
 
