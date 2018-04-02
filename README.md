@@ -46,6 +46,22 @@ launch the exporter with:
 or
 
     python3 ldap-export.py --specfile ldap-export.list --binddn cn=admin,dc=domain,dc=web --password password --remote ldapserver --outmode --multifile
+
+## Kubernetes
+Create a list of Kubernetes Pods, Statefulset or Deployments that you want document on your Mediawiki using this format:
+
+    # List the exported vs in namespace:<namespace>;type:[pods|deployments|statefulset|allsets];title:pagetitle;description:description format
+    namespace:default;type:deployments;title:default_namespace;description:This is the default namespace 
+    namespace:default;type:pods;title:default_namespace;description:This is the default namespace 
+    namespace:defaultasd;title:default_namespace;description:This is the default namespace 
+
+launch the exporter with:
+
+    python3 k8s-export.py --specfile k8s-export.list --credential ~/kubeconfig
+
+or
+    python3 k8s-export.py --specfile k8s-export.list --credential ~/kubeconfig --outmode multifile
+
 ## Mediawiki
 Import exported files in mediawiki with:
 
