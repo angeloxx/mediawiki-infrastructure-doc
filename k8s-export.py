@@ -120,7 +120,6 @@ def podToWiki(items):
         lines.append('| {}'.format("\n".join(annot)))    
 
     lines.append('|}')
-    print(lines)
     return "\n".join(lines)
 
 ##################################################
