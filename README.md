@@ -10,6 +10,7 @@ The objective of this project is to document the firewall policies and LDAP grou
     pip install f5-icontrol-rest
     pip install f5-sdk
     pip install python-ldap
+    pip install kubernetes
 
 # Usage
 
@@ -62,3 +63,6 @@ The script creates the main page that contains all exported elements OR a master
 
 ## LDAP group membership
 ![ldap](ldap.png)
+
+## Kubernetes deployment status
+![k8s](k8s.png)

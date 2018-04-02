@@ -77,7 +77,6 @@ specfile = open(options.specfile).read()
 try:
     mgmt = ldap.initialize('{0}://{1}'.format(options.proto,options.remote),bytes_mode=False)
     mgmt.simple_bind(options.binddn, options.password)
-    pass
 except Exception as e:
     log.error("Unable to login to {0}://{1} with '{2}' username".format(options.proto, options.remote, options.binddn))
     log.error("Error is: {0}".format(e))
@@ -109,7 +108,9 @@ for line in specfile.split("\n"):
             "body": "{0}\n{1}".format(values["description"], groupToWiki(data)),
             "footer": '{{{{note}}}}Last update {0}'.format(time.ctime())
         })
-
+    else:
+        log.error("Group {0}, does not exist.. skipped".format(values["dn"]))
+        continue
 
 if options.outmode == "file":
     with open(options.outfile, 'w') as the_file:

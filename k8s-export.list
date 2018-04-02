@@ -1,0 +1,4 @@
+# List the exported vs in namespace:<namespace>;type:[pods|deployments|statefulset|allsets];title:pagetitle;description:description format
+namespace:default;type:deployments;title:default_namespace;description:This is the default namespace 
+namespace:default;type:pods;title:default_namespace;description:This is the default namespace 
+namespace:defaultasd;title:default_namespace;description:This is the default namespace 
